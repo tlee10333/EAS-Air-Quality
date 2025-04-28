@@ -42,32 +42,39 @@ particulate_pollutants <- c( "pm1", "pm25", "pm10")
 
 
 #Function to Generate TimeVariation Plots based on Group
-averageAndIndividualTimeVarations <- function(sensor_group, group_title) {
+averageAndIndividualTimeVariations <- function(sensor_group, group_title="Sensors", overall=FALSE) {
 data_for_sensor <- my_df_filtered %>% filter(sn == sensor_group)
-  for (sensor in sensor_group) {
-data_for_sensor <- my_df_filtered %>% filter(sn == sensor)
+  
+  
+for (sensor in sensor_group) {
+  data_for_sensor <- my_df_filtered %>% filter(sn == sensor)
 
-title <- paste(sensor, mapping[[sensor]], sep= " - ") # Title the figure by sensor number
-temp_plot = openair::timeVariation(data_for_sensor, pollutant = c("pm1", "pm10", "pm25"), limits = c(0,10), main =title, normalise = TRUE)
-plot(temp_plot, subset = "hour", main = paste(mapping$sensor, "TimeVariation Plot"))
+  #Normalized
+  title <- paste(sensor, mapping[[sensor]], sep= " - ") 
+  temp_plot = openair::timeVariation(data_for_sensor, pollutant = c("pm1", "pm10", "pm25"), limits = c(0,10), main =title, normalise = TRUE)
+  plot(temp_plot, subset = "hour", main = paste(mapping$sensor, "TimeVariation Plot"))
 
-temp_plot = openair::timeVariation(data_for_sensor, pollutant = c("pm1", "pm10", "pm25"), limits = c(0,10), main =title, normalise = FALSE)
-plot(temp_plot, subset = "hour", main = paste(mapping$sensor, "TimeVariation Plot"))
+  #Non-Normalized
+  temp_plot = openair::timeVariation(data_for_sensor, pollutant = c("pm1", "pm10", "pm25"), limits = c(0,10), main =title, normalise = FALSE)
+  plot(temp_plot, subset = "hour", main = paste(mapping$sensor, "TimeVariation Plot"))
 
-temp_plot = openair::timeVariation(data_for_sensor, pollutant = c("pm1", "pm10", "pm25"), type ="season", limits = c(0,10), main =title, normalise = FALSE)
-plot(temp_plot, subset = "hour", main = paste(mapping$sensor, "TimeVariation Plot"))
+  #Non-Normalized Seasonal
+  temp_plot = openair::timeVariation(data_for_sensor, pollutant = c("pm1", "pm10", "pm25"), type ="season", limits = c(0,10), main =title, normalise = FALSE)
+  plot(temp_plot, subset = "hour", main = paste(mapping$sensor, "TimeVariation Plot"))
 
   }
 
-data_for_sensor <- my_df_filtered %>% filter(sn %in% sensor_group)
-title <- as.character(group_title) # Title the figure by sensor number
-temp_plot = openair::timeVariation(data_for_sensor, pollutant = c("pm1", "pm10", "pm25"), limits = c(0,10), main =title, normalise = TRUE)
-plot(temp_plot, subset = "hour", main = paste(mapping$sensor, "TimeVariation Plot"))
+if (overall) {
+  data_for_sensor <- my_df_filtered %>% filter(sn %in% sensor_group)
+  title <- as.character(group_title) # Title the figure by sensor number
+  temp_plot = openair::timeVariation(data_for_sensor, pollutant = c("pm1", "pm10", "pm25"), limits = c(0,10), main =title, normalise = TRUE)
+  plot(temp_plot, subset = "hour", main = paste(mapping$sensor, "TimeVariation Plot"))
+}
 
 }
 
 #Generate TimeVariation Plots for a Single Sensor (Entire Week, Weekday only, and Weekend Only)
-timeVariationByDay <- function(sensor, pollutants, data) {
+timeVariationByDay <- function(sensor, pollutants, data, normalized=FALSE, entireweek=FALSE) {
   
   # Filter the dataset for the given sensor
   data_for_sensor <- data %>% filter(sn == sensor)
@@ -79,21 +86,25 @@ timeVariationByDay <- function(sensor, pollutants, data) {
   # Generate the time variation plot for weekdays only
   title_weekday <- paste(sensor, "-", mapping[[sensor]], "(WEEKDAY ONLY)")
   temp_plot_weekday <- openair::timeVariation(df_weekdays, pollutant = pollutants, 
-                                              limits = c(0,10), main = title_weekday, normalise = TRUE)
+                                              limits = c(0,10), main = title_weekday, normalise = normalized)
   plot(temp_plot_weekday, subset = "hour", main = paste(mapping[[sensor]], "TimeVariation Plot (Weekdays)"))
   
   # Generate the time variation plot for weekends only
   title_weekend <- paste(sensor, "-", mapping[[sensor]], "(WEEKEND ONLY)")
   temp_plot_weekend <- openair::timeVariation(df_weekends, pollutant = pollutants, 
-                                              limits = c(0,10), main = title_weekend, normalise = TRUE)
+                                              limits = c(0,10), main = title_weekend, normalise = normalized)
   plot(temp_plot_weekend, subset = "hour", main = paste(mapping[[sensor]], "TimeVariation Plot (Weekends)"))
   
     
-  # Generate the time variation plot for weekends only
-  title_weekend <- paste(sensor, "-", mapping[[sensor]], "(ENTIRE WEEK)")
-  temp_plot_weekend <- openair::timeVariation(data_for_sensor, pollutant = pollutants, 
-                                              limits = c(0,10), main = title_weekend, normalise = TRUE)
-  plot(temp_plot_weekend, subset = "hour", main = paste(mapping[[sensor]], "TimeVariation Plot (Weekends)"))
+  # Generate the time variation plot for entire week 
+  if (entireweek) {
+      title_weekend <- paste(sensor, "-", mapping[[sensor]], "(ENTIRE WEEK)")
+      temp_plot_weekend <- openair::timeVariation(data_for_sensor, pollutant = pollutants, 
+                                                  limits = c(0,10), main = title_weekend, normalise = normalized)
+      plot(temp_plot_weekend, subset = "hour", main = paste(mapping[[sensor]], "TimeVariation Plot (Entire Week)"))
+
+  }
+
 }
 
 
@@ -543,3 +554,89 @@ sensor_timeline$sensor <- paste0( sensor_timeline$sensor,  " - ", mapping[as.cha
       legend.position = "top"
     )
 }
+
+individualMaps <- function(sensors, pollutants, stats, function_name) {
+
+  for (sensor in sensors) {
+  sensor_filtered <- my_df_filtered %>% filter(sn == sensor)
+  
+  for (p in pollutants) {
+    
+    # Dynamically extract the 95th percentile for this pollutant
+    max_val <- quantile(sensor_filtered[[p]], 0.95, na.rm = TRUE)
+    
+    # Set correct unit
+    unit <- if (grepl("pm", p)) "µg/m³" else "ppb"
+    
+    for (stat in stats) {
+      fun <- match.fun(function_name)
+              # Create polar map
+          map <- fun(sensor_filtered,
+                      pollutant = p, 
+                      latitude = "lat",
+                      longitude = "lon", 
+                      provider = "OpenStreetMap",
+                      cols = "jet",
+                      alpha = 0.8,
+                      key = FALSE,
+                      statistic = stat,      
+                      limits = c(0, max_val),
+                      cex = 2)
+
+      
+
+      
+
+
+      
+      # Save map
+      html_name =  paste(function_name,"map.html", sep="_")
+      saveWidget(map,html_name, selfcontained = TRUE)
+      filename_png <- paste(mapping[[as.character(sensor)]], p, stat, function_name, "map.png", sep = "_")
+      webshot(html_name, file = filename_png, vwidth = 1000, vheight = 800)
+      
+      
+       
+    }
+  }
+}
+
+}
+
+
+
+pieCharts <- function(df, sensor, pollutant, low_threshold, high_threshold, save_path = NULL) {
+  
+  sensor_filtered <- df %>% filter(sn == sensor)
+  
+  pol_low <- sum(sensor_filtered[[pollutant]] < low_threshold, na.rm=TRUE)
+  pol_high <- sum(sensor_filtered[[pollutant]] > high_threshold, na.rm=TRUE)
+  pol_mid <- sum(sensor_filtered[[pollutant]] > 0, na.rm=TRUE) - pol_low - pol_high
+  
+  pol_pie <- data.frame(values = c(pol_low, pol_mid, pol_high),
+                        labels = c("low", "medium", "high"))
+  
+  pol_pie <- mutate(pol_pie, percent = round(values / sum(values) * 100, 1))
+  
+  # If a save_path is provided, open png device
+  if (!is.null(save_path)) {
+    png(filename = paste0(save_path,mapping[[sensor]],"_", pollutant, "_pie_chart.png"), width = 800, height = 600)
+  }
+  
+  pie(pol_pie$values,
+      labels = round(pol_pie$percent, 1),
+      main = paste(mapping[[sensor]],"-", sensor, ":" , "Fraction of time at different", pollutant, "thresholds"),
+
+      col = c(3, 7, 2))
+  
+  legend("topright", pol_pie$labels,
+         cex = 0.8, fill = c(3, 7, 2))
+  
+  # If a save_path is provided, close png device
+  if (!is.null(save_path)) {
+    dev.off()
+  }
+  
+  print(paste("Chart created for sensor:", sensor))
+}
+

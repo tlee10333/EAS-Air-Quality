@@ -1,5 +1,14 @@
-# setup
+---
+title: "EAS Final Roxbury Air Quality Sensor Report"
+author: Trinity Lee
+date: 4/22/2025
+output:
+  html_document:
+    toc: true
+    theme: united
+---
 
+# setup
 ```{r setup, include=FALSE}
 # Check and install required packages if necessary
 packages <- c("openair", "openairmaps", "leaflet", "dplyr", "chron", "timeDate", "data.table", "hexbin","ggplot2","reshape2", "lubridate", "tidyr", "gridExtra")
@@ -94,6 +103,7 @@ percentileHeatmap(my_df_filtered, gas_sensors, gas_pollutants)
 percentileHeatmap(my_df_filtered, unique_sensors, particulate_pollutants)
 
 ```
+
 # Color Dot Maps for all sensors for chemical/gas pollutant types
 Note: you can't use a for loop in this because then the plots don't actually appear. 
 ```{r}
@@ -196,48 +206,47 @@ for (pollutant in gas_pollutants){
 ```
 # Polar Maps
 ```{r}
-polarMap(my_df_filtered,
-         pollutant = "pm1", 
+
+#no_na_df <- my_df_filtered[!is.na(my_df_filtered$pm1) & 
+#                                 !is.na(my_df_filtered$ws), ]
+
+polarAnnulus(my_df_filtered,
+         pollutant = "pm10", 
          key.position = "bottom",
-         key.header = "PM1 (ug/m3)", 
-         key.footer = NULL, 
+         key.header = "PM10 µg/m³", 
          x = "ws",
          latitude = "lat",
          longitude = "lon", 
          provider = "OpenStreetMap",
-         limits = c(0, 15),
+         limits = c(0, 60),
          cols = "jet",
          alpha = 0.8,
          key = TRUE,
-         iconWidth = 200,
-         iconHeight = 200,
-         fig.width = 4,
-         fig.height = 4,
-         statistic = "weighted.mean"
-         )
+
+)
+
 ```
 
-# Annulus Plot
-```{r}
+# Polar & Annulus Plot
 
-Annulus Plot(my_df_filtered,
-         pollutant = "pm1",
-         key.position = "bottom",
-         key.header = "NO (ppb)",
-         latitude = "lat",
-         longitude = "lon",
-         provider = "OpenStreetMap",
-         limits = c(0, 15),
-         cols = "jet",
-         key = TRUE,
-         )
+Generates Mean & Median plots for polar & Annulus plots (for every sensor & pollutant)
+```{r}
+library(webshot2)
+library(htmlwidgets)
+library(dplyr)
+library(openair)
+library(leaflet)
+source("./main_helpers.r")
+
+  individualMaps(unique_sensors[1:5], gas_pollutants, c("mean", "median"), "annulusMap")
+    individualMaps(unique_sensors[1:5], gas_pollutants, c("mean", "median"), "polarMap")
+
 
 ```
 
 
 ```{r}
-
-
+unique_sensors[1:6]
 ```
 # Duty Cycle Graph for One Sensor
 ```{r}
@@ -267,22 +276,67 @@ dutyCycleMultipleSensors( "no2", my_df,sensors )
 
 ```
 # TimeVariation Diurnals
+
+
+## Group Time Variations
+
+This function generates TimeVariations for a "group" of sensors. For each sensor in a group, it generates normalized, non-normalized, and non-normalized seasonal per sensor in each group. If parameter `overall` is set to true (by default it's false) an overall TimeVariation graph (normalized) of all the sensors in the group is also generated. 
+
 ```{r}
+#WARNING: These take an outrageous amount of time. Either decrease the # of sensors in the group or prepare
 
-for (sensor in unique_sensors) {
-  timeVariationByDay(sensor, particulate_pollutants, my_df_filtered)
-    timeVariationByDay(sensor, gas_pollutants, my_df_filtered)
+source("./main_helpers.r")
 
-  
-}
+#Example 1: If you want each group & overall graph
+#averageAndIndividualTimeVariations(commuter_sensors, "Commuter Sensors", TRUE)
+#averageAndIndividualTimeVariations(publicbus_sensors, "Public Bus Sensors", TRUE)
+#averageAndIndividualTimeVariations(schoolbus_sensors, "School Bus Sensors", TRUE)
+#averageAndIndividualTimeVariations(construction_sensors, "Construction Sensors", TRUE)
+
+#Example 2:If you just want every sensor
+#averageAndIndividualTimeVariations(unique_sensors)
+
+
+#Example 3: If you want just one sensor
+averageAndIndividualTimeVariations(c("MOD-PM-00211"))
+
+
+
 
 ```
+
+#TimeVariations based on Weekday & Weekends, and then the Overall
+```{r}
+source("./main_helpers.r")
+
+#PM & Gas sensors
+for (sensor in unique_sensors[1]) {
+  timeVariationByDay(sensor, particulate_pollutants, my_df_filtered)
+  
+  #If sensor also tracks gas
+  if (!grepl("PM", sensor)) {
+      timeVariationByDay(sensor, gas_pollutants, my_df_filtered)
+  }
+}
+
+
+
+
+
+```
+```{r}
+
+
+
+
+```
+
 # Calendar Plots (Exported PNGS)
 ```{r}
-unique_sensors <- unique(my_df$sn)
+#unique_sensors <- unique(my_df$sn)
 
 for (sensor in unique_sensors) {
-  for (pollutant in gas_pollutants) {
+  for (pollutant in particulate_pollutants) {
     filename <- paste0("calendar_", sensor, "_", pollutant, ".png")
 
     png(filename, width = 1600, height = 1000)
@@ -313,44 +367,33 @@ for (sensor in unique_sensors) {
 
 
 ```
-
+#Pie Charts
 
 ``` {r} 
-# High and low thresholds
+### Pie charts
+
+source("./main_helpers.r")
+
 pm1_low_threshold = 2  # made up guideline
 pm1_high_threshold = 5  # made up guideline
- 
+    
 pm25_low_threshold = 5 # who annual guideline
 pm25_high_threshold = 12 # who hourly guideline
- 
-pm10_low_threshold = 15 # who annual guideline
+    
+pm10_low_threshold = 20 # who annual guideline
 pm10_high_threshold = 35 # who hourly guideline
+    
+for (sensor in unique_sensors) {
+  for (pollutant in particulate_pollutants){
+    
+    pieCharts(my_df_filtered,sensor,  pollutant,get(paste0(pollutant,"_low_threshold" )), get(paste0(pollutant,"_high_threshold" )), "./pieCharts/")
 
-source("./helpers.r")
+  }
+  
+  
+  
+}    
 
-# EPA Standards: https://www.epa.gov/criteria-air-pollutants/naaqs-table
-pollutants_1 <- c("co", "no2", "o3", "pm25", "pm10")
-limits_1 <- c(9*1000, # 8 hours (ppm->ppb)
-              53, # 1 year (ppb)
-              0.070*1000, # 8 hours (ppm->ppb)
-              35, # 24 hours (ug/m3)
-              150) #24 hours (ug/m3)
-EPA_standards <- data.frame(pollutants_1, limits_1)
-
-# WHO Standards: https://www.who.int/news-room/feature-stories/detail/what-are-the-who-air-quality-guidelines
-# Conversions: https://www.breeze-technologies.de/blog/air-pollution-how-to-convert-between-mgm3-%C2%B5gm3-ppm-ppb/
-pollutants_2 <- c("co", "no2", "o3", "pm25", "pm10")
-limits_2 <- c(4*1000*1.15, # 24 hours (mg/m3->ppb)
-              10*1.88, # 1 year (ug/m3->ppb)
-              100*1.96, # 8 hours 
-              15, # 24 hours (ug/m3)
-              45) #24 hours (ug/m3)
-WHO_standards <- data.frame(pollutants_2, limits_2)
-
-plots <- plot_grouped_pm_trends(my_df_filtered, EPA_standards, WHO_standards)
-for (plot in plots) {
-  print(plot)
-}
 
 ```
 
