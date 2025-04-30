@@ -5,7 +5,6 @@ library(lubridate)
 library(openair)
 library(leaflet)
 
-# Mapping
 
 #Make mapping 
 mapping <- list(
@@ -41,24 +40,28 @@ gas_pollutants <- c("co", "o3", "no", "no2")
 particulate_pollutants <- c( "pm1", "pm25", "pm10")
 
 
-#Function to Generate TimeVariation Plots based on Group
-averageAndIndividualTimeVariations <- function(sensor_group, group_title="Sensors", overall=FALSE) {
+# Function to Generate TimeVariation Plots based on Group
+# @param my_df_filtered a dataframe
+# @param sensor_group A character vector of sensors
+# @param group_title Optional String that can be set if generating an overall Time Variation Plot
+# @param overall Boolean on whether we want a Timevariation plot of the entire sensor group
+averageAndIndividualTimeVariations <- function(my_df_filtered, sensor_group, group_title="Sensors", overall=FALSE) {
 data_for_sensor <- my_df_filtered %>% filter(sn == sensor_group)
   
   
 for (sensor in sensor_group) {
   data_for_sensor <- my_df_filtered %>% filter(sn == sensor)
 
-  #Normalized
+  # Normalized
   title <- paste(sensor, mapping[[sensor]], sep= " - ") 
   temp_plot = openair::timeVariation(data_for_sensor, pollutant = c("pm1", "pm10", "pm25"), limits = c(0,10), main =title, normalise = TRUE)
   plot(temp_plot, subset = "hour", main = paste(mapping$sensor, "TimeVariation Plot"))
 
-  #Non-Normalized
+  # Non-Normalized
   temp_plot = openair::timeVariation(data_for_sensor, pollutant = c("pm1", "pm10", "pm25"), limits = c(0,10), main =title, normalise = FALSE)
   plot(temp_plot, subset = "hour", main = paste(mapping$sensor, "TimeVariation Plot"))
 
-  #Non-Normalized Seasonal
+  # Non-Normalized Seasonal
   temp_plot = openair::timeVariation(data_for_sensor, pollutant = c("pm1", "pm10", "pm25"), type ="season", limits = c(0,10), main =title, normalise = FALSE)
   plot(temp_plot, subset = "hour", main = paste(mapping$sensor, "TimeVariation Plot"))
 
@@ -73,7 +76,13 @@ if (overall) {
 
 }
 
+
 #Generate TimeVariation Plots for a Single Sensor (Entire Week, Weekday only, and Weekend Only)
+# @param sensor A string of the sensor name
+# @param pollutants A character vector of pollutants
+# @param data A dataframe
+# @param normalized A optional boolean, TRUE if we want the plots to be normalized or not
+# @param entireweek A optional boolean, TRUE if we want to generate an entire week diurnal as well
 timeVariationByDay <- function(sensor, pollutants, data, normalized=FALSE, entireweek=FALSE) {
   
   # Filter the dataset for the given sensor
@@ -108,7 +117,11 @@ timeVariationByDay <- function(sensor, pollutants, data, normalized=FALSE, entir
 }
 
 
-#Time Variation With Spliced Data & Median Heatmap for spliced data
+#Function which filters data based on a date range
+# @param data A dataframe
+# @param sensor_to_filter A string of the sensor name
+# @param start_date A Date object
+# @param end_date A Date object
 filterBySensorData <- function(data, sensor_to_filter, start_date, end_date) {
   data %>%
     filter(
@@ -118,7 +131,12 @@ filterBySensorData <- function(data, sensor_to_filter, start_date, end_date) {
     )
 }
 
-
+#Function to plot an Annulus map
+# @param sensor A string of the sensor name
+# @param pollutant A string 
+# @param data A dataframe
+# @param max An optional integer to manually decide the max_limit for the color scale. By default it's the max of the dataset
+# @param statistic A string that let's us choose the stastistic parameter of the AnnulusMap function 
 plotAnnulusMap <- function(sensor, pollutant, data, max =0, statistic="mean") {
   # Filter dataset for the given sensor
   data_for_sensor <- data %>% filter(sn == sensor)
@@ -145,6 +163,12 @@ plotAnnulusMap <- function(sensor, pollutant, data, max =0, statistic="mean") {
   )
 }
 
+#Function to plot PolarMap
+# @param sensor A string of the sensor name
+# @param pollutant A string 
+# @param data A dataframe
+# @param max An optional integer to manually decide the max_limit for the color scale. By default it's the max of the dataset
+# @param statistic A string that let's us choose the stastistic parameter of the AnnulusMap function 
 plotPolarMap <- function(sensor, pollutant, data, max =0, statistic="mean") {
   # Filter dataset for the given sensor
   data_for_sensor <- data %>% filter(sn == sensor)
@@ -170,7 +194,11 @@ plotPolarMap <- function(sensor, pollutant, data, max =0, statistic="mean") {
 }
 
 
-
+# Ouputs dataframe used for Bar charts and Heatmaps by calculating mean, median, std. deviation, and 25th, 75th, and 95th percentile
+# @param my_df A dataframe
+# @param sensors A character vector of sensor names
+# @param pollutants A character vector of pollutants
+# @return results A dataframe with eahc sensor and pollutant's mean,median, Std.d deviation, percentiles, and lat/longitude
  computeFullSummary <- function(my_df, sensors, pollutants) {
   results <- data.frame(Sensor = character(), 
                         Pollutant = character(), 
@@ -218,6 +246,13 @@ plotPolarMap <- function(sensor, pollutant, data, max =0, statistic="mean") {
   return(results)
 }
 
+# Generate Bar Charts for Sensors
+# @param summary_df A dataframe generated by computeFullSummary
+# @param pollutants_to_plots A character vector of pollutants
+# @param stats A string for what statistical option we want to display (Mean, Median, etc)
+# @param include_sd A optional boolean where if TRUE, will display std. deviation lines on the bar charts
+# @param order_by A optional string where if set to "overall" then it will order the sensors based on magnitude, while if by group, will group them first
+# @return Outputs PNGs. 
 barCharts <- function(summary_df, pollutant_to_plot, stats, include_sd = TRUE, order_by = c("group", "overall")) {
   
   order_by <- match.arg(order_by)
@@ -333,6 +368,10 @@ percentile_summary <- function(my_df, sensors, pollutants) {
 
 
 # percentile heatmap with transposed axes for each pollutant
+# @param my_df A dataframe
+# @param sensors A character vector of sensors
+# @ param pollutants A character vector of pollutants
+# @return PNGs
 percentileHeatmap <- function(my_df, sensors, pollutants) {
   
   # Loop through each pollutant
@@ -375,7 +414,10 @@ p <- ggplot(results_long, aes(y = Sensor, x = Percentile)) +
   }
 }
 
-
+# Generates colored dot maps of the entire network
+# @param summary_data A computeFullSummary object
+# @param summary_stat Type of statistic wanted to display (Mean, median, Percentiles)
+# @param pollutant A strubg if the pollutant in question
 generateNetworkMap <- function(summary_data, summary_stat = "Median", pollutant) {
   required_cols <- c("Lon", "Lat", "Median", "Mean", "SD", "P25", "P75", "P95")
   if (!all(required_cols %in% colnames(summary_data))) {
@@ -434,7 +476,10 @@ generateNetworkMap <- function(summary_data, summary_stat = "Median", pollutant)
     )
 }
 
-
+# Generates a Duty Cycle graph for a single sensor
+# @param sensor_id A string of the sensor name
+# @param chemical A string of the pollutant
+# @param my_df A dataframe
 dutyCycleSensor <- function(sensor_id, chemical, my_df) {
   # Ensure date column is Date class
   my_df$date <- as.Date(my_df$date)
@@ -489,7 +534,10 @@ segments <- timeline %>%
     ) +
     theme_minimal()
 }
-
+# Generates a Duty Cycle graph for multiple sensors
+# @param chemical A string of the pollutant
+# @param my_df A dataframe
+# @param  sensoirs A character vector of sensor names 
 dutyCycleMultipleSensors <- function(chemical, my_df, sensors) {
 
   # Ensure proper column types
@@ -555,6 +603,12 @@ sensor_timeline$sensor <- paste0( sensor_timeline$sensor,  " - ", mapping[as.cha
     )
 }
 
+#Generates Polar and Annulus Plots On a map
+# @param sensors A character vector of sensor names
+# @param pollutants A character vector of pollutants
+# @param stats A string for the function's statistic parameter (Mean, weighted.mean, etc)
+# @param function_name A string for the function name ("annulusMap" or "polarMap")
+# @return PNGs of all the maps automatically taken
 individualMaps <- function(sensors, pollutants, stats, function_name) {
 
   for (sensor in sensors) {
@@ -604,7 +658,14 @@ individualMaps <- function(sensors, pollutants, stats, function_name) {
 }
 
 
-
+# Generates Pie Charts for pollutant low, medium, and high concentrations based on set thresholds
+# @param df A dataframe
+# @param sensor A string for sensor name
+# @param pollutant A string of a pollutant
+# @param low_threshold A integer for what is the low threshold
+# @param high_threshold A integer for what is the high threshold
+# @param save_path A string for the path where the images should be saved to
+# @return PNGs of the Pie Chart
 pieCharts <- function(df, sensor, pollutant, low_threshold, high_threshold, save_path = NULL) {
   
   sensor_filtered <- df %>% filter(sn == sensor)
@@ -640,3 +701,42 @@ pieCharts <- function(df, sensor, pollutant, low_threshold, high_threshold, save
   print(paste("Chart created for sensor:", sensor))
 }
 
+# Generates Calendar Plot PNGs
+#  @params df A dataframe
+# @params sensors A character vector of sensor names
+# @param pollutants A cahracter vector of pollutants
+# @param output_dir A string for where the output directory is to be located
+# @return PNGs of the calendar plots 
+calendarPlotPNGs <- function(df, sensors, pollutants, output_dir = ".") {
+  for (sensor in sensors) {
+    for (pollutant in pollutants) {
+      filename <- file.path(output_dir, paste0("calendar_", sensor, "_", pollutant, ".png"))
+      
+      png(filename, width = 1600, height = 1000)
+      
+      # Filter data for the specific sensor
+      data_for_sensor <- df %>% dplyr::filter(sn == sensor)
+      
+      # Skip if no data or all pollutant values are NA
+      if (nrow(data_for_sensor) == 0 || all(is.na(data_for_sensor[[pollutant]]))) {
+        dev.off()  # Close any open PNG device before continuing
+        next
+      }
+      
+      # Set title
+      title <- paste("Calendar Plot for", sensor, "-", pollutant)
+      
+      # Create plot
+      openair::calendarPlot(
+        data_for_sensor, 
+        pollutant = pollutant, 
+        limits = c(0, median(data_for_sensor[[pollutant]], na.rm = TRUE) + 
+                      sd(data_for_sensor[[pollutant]], na.rm = TRUE)), 
+        main = title, 
+        key.header = paste(pollutant, "µg/m³"), 
+        key.position = "right"
+      )
+      dev.off()
+    }
+  }
+}
