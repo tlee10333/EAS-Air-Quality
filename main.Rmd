@@ -288,10 +288,10 @@ This function generates TimeVariations for a "group" of sensors. For each sensor
 source("./main_helpers.r")
 
 #Example 1: If you want each group & overall graph
-#averageAndIndividualTimeVariations(commuter_sensors, "Commuter Sensors", TRUE)
-#averageAndIndividualTimeVariations(publicbus_sensors, "Public Bus Sensors", TRUE)
-#averageAndIndividualTimeVariations(schoolbus_sensors, "School Bus Sensors", TRUE)
-#averageAndIndividualTimeVariations(construction_sensors, "Construction Sensors", TRUE)
+#averageAndIndividualTimeVariations(,my_df_filtered, commuter_sensors, "Commuter Sensors", TRUE)
+#averageAndIndividualTimeVariations(my_df_filtered, publicbus_sensors, "Public Bus Sensors", TRUE)
+#averageAndIndividualTimeVariations(my_df_filtered, schoolbus_sensors, "School Bus Sensors", TRUE)
+#averageAndIndividualTimeVariations(my_df_filtered, construction_sensors, "Construction Sensors", TRUE)
 
 #Example 2:If you just want every sensor
 #averageAndIndividualTimeVariations(unique_sensors)
